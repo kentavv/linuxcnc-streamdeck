@@ -34,6 +34,17 @@ from StreamDeck.ImageHelpers import PILHelper
 ASSETS_PATH = os.path.join(os.path.dirname(__file__), "Assets")
 page_num = 0
 
+import os
+import time
+ 
+write_path = "/tmp/pipe.in"
+read_path = "/tmp/pipe.out"
+ 
+wf = None
+rf = None
+
+brake_state_ = False
+
 
 # Generates an image that is correctly sized to fit across all keys of a given
 # StreamDeck.
@@ -132,22 +143,27 @@ def get_key_style(deck, key, state):
         name = "brake"
         icon = "{}.png".format("brake-on" if state else "brake-off")
         font = "Roboto-Regular.ttf"
-        label = 'Brake' #"Bye" if state else "Exit"
+        label = 'Brake'
     elif key == (nr-2) * nc + 0:
         name = "jog"
         icon = "{}.png".format("brake-on" if state else "brake-off")
         font = "Roboto-Regular.ttf"
-        label = 'Jog' #"Bye" if state else "Exit"
+        label = 'Jog'
     elif key == (nr-1) * nc + 0:
         name = "probe"
         icon = "{}.png".format("brake-on" if state else "brake-off")
         font = "Roboto-Regular.ttf"
-        label = 'Probe' #"Bye" if state else "Exit"
+        label = 'Probe'
     elif key == (nr-3) * nc + nc-1:
         name = ""
         icon = "watermark.png"
         font = "Roboto-Regular.ttf"
-        label = '' #"Bye" if state else "Exit"
+        label = ''
+    elif key == (nr-2) * nc + nc-1:
+        name = "coordinates"
+        icon = ''
+        font = "Roboto-Regular.ttf"
+        label = ''
     else:
             name = ""
             icon = ""
@@ -165,37 +181,47 @@ def get_key_style(deck, key, state):
     #     name = "brake"
     #     icon = "{}.png".format("brake-on" if state else "brake-off")
     #     font = "Roboto-Regular.ttf"
-    #     label = 'Brake' #"Bye" if state else "Exit"
+    #     label = 'Brake'
+    elif key == (nr-3) * nc + 0:
+        name = "jog_speed"
+        icon = ''
+        font = "Roboto-Regular.ttf"
+        label = ''
     elif key == (nr-2) * nc + 0:
         name = "jog_z_+"
         icon = "{}.png".format("jog_z_+" + ('_pressed' if state else ''))
         font = "Roboto-Regular.ttf"
-        label = '' #"Bye" if state else "Exit"
+        label = ''
     elif key == (nr-1) * nc + 0:
         name = "jog_z_-"
         icon = "{}.png".format("jog_z_-" + ('_pressed' if state else ''))
         font = "Roboto-Regular.ttf"
-        label = '' #"Bye" if state else "Exit"
+        label = ''
     elif key == (nr-2) * nc + nc-2:
         name = "jog_y_+"
         icon = "{}.png".format("jog_y_+" + ('_pressed' if state else ''))
         font = "Roboto-Regular.ttf"
-        label = '' #"Bye" if state else "Exit"
+        label = ''
     elif key == (nr-1) * nc + nc-2:
         name = "jog_y_-"
         icon = "{}.png".format("jog_y_-" + ('_pressed' if state else ''))
         font = "Roboto-Regular.ttf"
-        label = '' #"Bye" if state else "Exit"
+        label = ''
     elif key == (nr-1) * nc + nc-3:
         name = "jog_x_-"
         icon = "{}.png".format("jog_x_-" + ('_pressed' if state else ''))
         font = "Roboto-Regular.ttf"
-        label = '' #"Bye" if state else "Exit"
+        label = ''
     elif key == (nr-1) * nc + nc-1:
         name = "jog_x_+"
         icon = "{}.png".format("jog_x_+" + ('_pressed' if state else ''))
         font = "Roboto-Regular.ttf"
-        label = '' #"Bye" if state else "Exit"
+        label = ''
+    elif key == (nr-2) * nc + nc-1:
+        name = "coordinates"
+        icon = ''
+        font = "Roboto-Regular.ttf"
+        label = ''
     else:
         if False:
             name = "emoji"
@@ -261,6 +287,11 @@ def get_key_style(deck, key, state):
         icon = "{}.png".format("probe_3" if state else "probe_3")
         font = "Roboto-Regular.ttf"
         label = ''
+    elif key == (nr-2) * nc + nc-1:
+        name = "coordinates"
+        icon = ''
+        font = "Roboto-Regular.ttf"
+        label = ''
     else:
         if False:
             name = "emoji"
@@ -287,6 +318,9 @@ def update_key_image(deck, key, state):
     # Determine what icon and label to use on the generated key.
     key_style = get_key_style(deck, key, state)
 
+    if not key_style["icon"] and key_style["name"]:
+        return
+
     # Generate the custom key with the requested image and label.
     image = render_key_image(deck, key_style["icon"], key_style["font"], key_style["label"])
 
@@ -306,7 +340,6 @@ def title_page0(deck):
     for r in range(nr):
         for c in range(nc):
             key = r * nc + c
-            print(key)
 
             icon = logo
             image = PILHelper.create_scaled_image(deck, icon, margins=[0, 0, 0, 0])
@@ -326,7 +359,7 @@ def title_page(deck):
         # StreamDeck.
         image = create_full_deck_sized_image(deck, key_spacing, "linux logo.png")
 
-        print("Created full deck image size of {}x{} pixels.".format(image.width, image.height))
+        # print("Created full deck image size of {}x{} pixels.".format(image.width, image.height))
 
         # Extract out the section of the image that is occupied by each key.
         key_images = dict()
@@ -338,37 +371,75 @@ def title_page(deck):
                 deck.set_key_image(k, key_images[k])
 
 
+state_ = {}
+
 # Prints key state change information, updates rhe key image and performs any
 # associated actions when a key is pressed.
 def key_change_callback(deck, key, state):
     # Print new key state
-    print("Deck {} Key {} = {}".format(deck.id(), key, state), flush=True)
+    # print("Deck {} Key {} = {}".format(deck.id(), key, state), flush=True)
 
     # Update the key image based on the new key state.
     update_key_image(deck, key, state)
 
-    # Check if the key is changing to the pressed state.
-    if state:
-        key_style = get_key_style(deck, key, state)
+    key_style = get_key_style(deck, key, state)
 
-        # When an exit button is pressed, close the application.
-        if key_style["name"] == "exit":
-            set_page(deck, 1)
-            # # Use a scoped-with on the deck to ensure we're the only thread
-            # # using it right now.
-            # with deck:
-            #     # Reset deck, clearing all button images.
-            #     deck.reset()
-            #
-            #     # Close deck handle, terminating internal worker threads.
-            #     deck.close()
-        elif key_style["name"] == "jog":
-            set_page(deck, 2)
-        elif key_style["name"] == "probe":
-            set_page(deck, 3)
+    # When an exit button is pressed, close the application.
+    if key_style["name"] == "exit" and state:
+        set_page(deck, 1)
+        # # Use a scoped-with on the deck to ensure we're the only thread
+        # # using it right now.
+        # with deck:
+        #     # Reset deck, clearing all button images.
+        #     deck.reset()
+        #
+        #     # Close deck handle, terminating internal worker threads.
+        #     deck.close()
+    elif key_style["name"] == "jog" and state:
+        set_page(deck, 2)
+    elif key_style["name"] == "probe" and state:
+        set_page(deck, 3)
+    else:
+        global state_, brake_state_
+        if key_style['name']:
+            if key_style['name'] == 'brake':
+                if state:
+                    # print(key_style["name"], 'toggle')
+                    state_[key_style['name']] = not brake_state_
+            else:
+                # print(key_style["name"], state)
+                state_[key_style['name']] = state
 
 
 def update(deck):
+    if True:
+        global rf, wf
+
+        if wf is None:
+            wf = os.open(write_path, os.O_SYNC | os.O_CREAT | os.O_RDWR)
+        if rf is None:
+            rf = os.open(read_path, os.O_RDONLY)
+
+        global state_
+        if state_: 
+            msg = '\n'.join([f'{k}:{1 if v else 0}' for k,v in state_.items()])
+            state_ = {}
+        else:
+            msg = '0'
+        b = msg.encode('latin-1')
+        len_send = os.write(wf, b)
+
+        b = os.read(rf, 1024)
+        if len(b) == 0:
+            return
+        s = b.decode('latin-1')
+        # print('Received:', s)
+    
+        lst = s.split()
+        lst[-2] = lst[-2] == '1'
+    else:
+        lst = [f'{random.random() * 100 :06.4f}' for x in range(3)] + [1]
+
     nr, nc = deck.key_layout()
 
     key_width, key_height = deck.key_image_format()['size']
@@ -382,17 +453,31 @@ def update(deck):
     # label onto the image a few pixels from the bottom of the key.
     draw = ImageDraw.Draw(image)
     font = ImageFont.truetype(font_filename, 16)
-    label_text = f'{random.random() * 100 :06.4f}'
-    draw.text((image.width - 5, image.height - 60), text=label_text, font=font, anchor="rs", fill="white")
-    label_text = f'{random.random() * 100 :06.4f}'
-    draw.text((image.width - 5, image.height - 35), text=label_text, font=font, anchor="rs", fill="white")
-    label_text = f'{random.random() * 100 :06.4f}'
-    draw.text((image.width - 5, image.height - 10), text=label_text, font=font, anchor="rs", fill="white")
+    for (i, y) in enumerate([60, 35, 10]):
+        label_text = lst[i]
+        draw.text((image.width - 5, image.height - y), text=label_text, font=font, anchor="rs", fill="white")
     k = (nr-2) * nc + nc - 1
-    image = image
 
     key_image = PILHelper.to_native_format(deck, image)
     deck.set_key_image(k, key_image)
+
+    global brake_state_
+    brake_state_ = lst[-2]
+    if page_num == 1:
+        update_key_image(deck, 0, brake_state_)
+    jog_vel_ = lst[-2]
+    if page_num == 2:
+        image = PILHelper.create_image(deck)
+
+        draw = ImageDraw.Draw(image)
+        font = ImageFont.truetype(font_filename, 16)
+        label_text = f'{lst[-1]} ips'
+        draw.text((image.width / 2, image.height / 2), text=label_text, font=font, anchor="ms", fill="white")
+
+        key_image = PILHelper.to_native_format(deck, image)
+        deck.set_key_image(0, key_image)
+
+    # print(state_)
 
 
 def set_page(deck, pn):
@@ -438,3 +523,9 @@ if __name__ == "__main__":
                 t.join(.1)
                 if t.is_alive():
                     update(deck)
+
+os.write(wf, 'exit')
+ 
+os.close(rf)
+os.close(wf)
+
