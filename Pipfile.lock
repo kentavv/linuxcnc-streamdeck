@@ -1,11 +1,11 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "984122d05ccc9e442b7eb8a93d151d3d4a7a60a4964808bef75731533bbc029c"
+            "sha256": "74890353ca584ca64e7fd03d27c18a74c0d4a5f1bc36b415726187e084de08d4"
         },
         "pipfile-spec": 6,
         "requires": {
-            "python_version": "3.8"
+            "python_version": "3.7"
         },
         "sources": [
             {
@@ -58,11 +58,11 @@
         },
         "streamdeck": {
             "hashes": [
-                "sha256:4558503e077e9c0652f35faf9c0a50ed841266ba4e0723f82bb1333cefee4c77",
-                "sha256:78035be62e9604754f8221d7ae8ce67ec22fa3a4e8b97b572e2c5d5fcee453b5"
+                "sha256:1dc0a7d5fa3577c696ae4aa5fd3f9dae3776fd3f73b24a9bab580ecc2548c772",
+                "sha256:d4f30aa9da1f9b5e12738c414eecb6069d5cbf0bd554f58c49ec0b98a9a3fc19"
             ],
             "index": "pypi",
-            "version": "==0.8.4"
+            "version": "==0.8.2"
         }
     },
     "develop": {}
