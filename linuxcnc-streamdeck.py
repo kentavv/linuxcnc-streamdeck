@@ -146,12 +146,12 @@ def get_key_style(deck, key, state):
         label = 'Brake'
     elif key == (nr-2) * nc + 0:
         name = "jog"
-        icon = "{}.png".format("brake-on" if state else "brake-off")
+        icon = 'jogging_menu.png'
         font = "Roboto-Regular.ttf"
         label = 'Jog'
     elif key == (nr-1) * nc + 0:
         name = "probe"
-        icon = "{}.png".format("brake-on" if state else "brake-off")
+        icon = 'probe_menu.png'
         font = "Roboto-Regular.ttf"
         label = 'Probe'
     elif key == (nr-3) * nc + nc-1:
@@ -505,7 +505,7 @@ if __name__ == "__main__":
         deck.set_brightness(30)
 
         set_page(deck, 0)
-        time.sleep(.5)
+        time.sleep(5)
 
         # Set initial key images.
         set_page(deck, 1)
