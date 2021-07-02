@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # Modifications to the Python Stream Deck Library example
 # for LinuxCNC by
@@ -34,16 +34,13 @@ from StreamDeck.ImageHelpers import PILHelper
 ASSETS_PATH = os.path.join(os.path.dirname(__file__), "Assets")
 page_num = 0
 
+import linuxcnc
 import os
 import time
  
-write_path = "/tmp/pipe.in"
-read_path = "/tmp/pipe.out"
- 
-wf = None
-rf = None
-
 brake_state_ = False
+vel_ = [10, 20, 100]
+vel_ind_ = 0
 
 
 # Generates an image that is correctly sized to fit across all keys of a given
@@ -400,43 +397,44 @@ def key_change_callback(deck, key, state):
     elif key_style["name"] == "probe" and state:
         set_page(deck, 3)
     else:
-        global state_, brake_state_
-        if key_style['name']:
-            if key_style['name'] == 'brake':
-                if state:
-                    # print(key_style["name"], 'toggle')
-                    state_[key_style['name']] = not brake_state_
-            else:
-                # print(key_style["name"], state)
-                state_[key_style['name']] = state
+        c = linuxcnc.command()
+        global state_, brake_state_, vel_, vel_ind_
+        k = key_style['name']
+        if k == 'brake':
+            if state:
+                 if brake_state_:
+                     c.brake(linuxcnc.BRAKE_RELEASE)
+                 else:
+                     c.brake(linuxcnc.BRAKE_ENGAGE)
+        elif k == 'jog_speed':
+             if state:
+                 vel_ind_ = (vel_ind_ + 1) % len(vel_)
+        elif k.startswith('jog_'):
+             axis = {'x':0, 'y':1, 'z':2}[k[4]]
+             d = {'+':1, '-':-1}[k[6]]
+             vel = d * vel_[vel_ind_] / 60.
+             if state:
+                 c.jog(linuxcnc.JOG_CONTINUOUS, False, axis, vel)
+             else:
+                 c.jog(linuxcnc.JOG_STOP, False, axis)
+        else:
+            print(key_style["name"], state)
 
 
 def update(deck):
     if True:
-        global rf, wf
+        try:
+            s = linuxcnc.stat() # create a connection to the status channel
+            s.poll() # get current values
+        except linuxcnc.error as detail:
+            print("error", detail)
+            sys.exit(1)
+        # for x in dir(s):
+        #     if not x.startswith('_'):
+        #         print x, getattr(s,x)
+        pos = s.actual_position
 
-        if wf is None:
-            wf = os.open(write_path, os.O_SYNC | os.O_CREAT | os.O_RDWR)
-        if rf is None:
-            rf = os.open(read_path, os.O_RDONLY)
-
-        global state_
-        if state_: 
-            msg = '\n'.join([f'{k}:{1 if v else 0}' for k,v in state_.items()])
-            state_ = {}
-        else:
-            msg = '0'
-        b = msg.encode('latin-1')
-        len_send = os.write(wf, b)
-
-        b = os.read(rf, 1024)
-        if len(b) == 0:
-            return
-        s = b.decode('latin-1')
-        # print('Received:', s)
-    
-        lst = s.split()
-        lst[-2] = lst[-2] == '1'
+        lst = ['{:6.04f}'.format(pos[0]), '{:6.04f}'.format(pos[1]), '{:6.04f}'.format(pos[2]), s.spindle[0]['brake'], vel_[vel_ind_]]
     else:
         lst = [f'{random.random() * 100 :06.4f}' for x in range(3)] + [1]
 
@@ -522,9 +520,4 @@ if __name__ == "__main__":
                 t.join(.1)
                 if t.is_alive():
                     update(deck)
-
-os.write(wf, 'exit')
- 
-os.close(rf)
-os.close(wf)
 
